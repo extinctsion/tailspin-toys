@@ -82,6 +82,20 @@ const games = await getAllGames(getDatabase());
         <EmptyState text="No games available at the moment." />
       ) : (
         <>
+          <div class="mb-6 flex items-center gap-3">
+            <label for="game-sort" class="text-sm font-medium text-slate-200">Sort games</label>
+            <select
+              id="game-sort"
+              class="rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              data-testid="game-sort"
+            >
+              <option value="title-asc">Title (A-Z)</option>
+              <option value="title-desc">Title (Z-A)</option>
+              <option value="rating-desc">Rating (highest first)</option>
+            </select>
+            <span class="sr-only" data-testid="sort-status" aria-live="polite"></span>
+          </div>
+
           <div data-testid="games-empty-state" hidden class="mb-6">
             <EmptyState text="No games match your selected filters." />
           </div>
@@ -95,6 +109,9 @@ const games = await getAllGames(getDatabase());
 </Layout>
 
 <script>
+  const sortControl = document.querySelector<HTMLSelectElement>('[data-testid="game-sort"]');
+  const gamesGrid = document.querySelector<HTMLElement>('[data-testid="games-grid"]');
+  const sortStatus = document.querySelector<HTMLElement>('[data-testid="sort-status"]');
   const filterForm = document.getElementById('game-filter-form');
   const categoryFilter = document.getElementById('category-filter') as HTMLSelectElement | null;
   const publisherFilter = document.getElementById('publisher-filter') as HTMLSelectElement | null;
@@ -113,17 +130,34 @@ const games = await getAllGames(getDatabase());
       const isVisible = matchesCategory && matchesPublisher;
 
       card.hidden = !isVisible;
-      if (isVisible) {
-        visibleCount += 1;
-      }
+      if (isVisible) visibleCount += 1;
     }
 
     const emptyState = document.querySelector<HTMLElement>('[data-testid="games-empty-state"]');
-    if (emptyState) {
-      emptyState.hidden = visibleCount > 0;
-    }
+    if (emptyState) emptyState.hidden = visibleCount > 0;
   }
 
+  function sortVisibleCards() {
+    if (!gamesGrid || !sortControl) return;
+
+    const cards = [...gamesGrid.querySelectorAll<HTMLElement>('[data-testid="game-card"]')];
+    cards.sort((a, b) => {
+      if (sortControl.value === 'rating-desc') {
+        const ratingA = Number.parseFloat(a.dataset.gameRating ?? '');
+        const ratingB = Number.parseFloat(b.dataset.gameRating ?? '');
+        const unratedA = Number.isNaN(ratingA);
+        const unratedB = Number.isNaN(ratingB);
+        if (unratedA !== unratedB) return unratedA ? 1 : -1;
+        if (!unratedA && ratingA !== ratingB) return ratingB - ratingA;
+      }
+      const titleComparison = (a.dataset.gameTitle ?? '').localeCompare(b.dataset.gameTitle ?? '');
+      return sortControl.value === 'title-desc' ? -titleComparison : titleComparison;
+    });
+    gamesGrid.replaceChildren(...cards);
+    if (sortStatus) sortStatus.textContent = `Games sorted by ${sortControl.selectedOptions[0]?.textContent ?? 'selected order'}.`;
+  }
+
+  sortControl?.addEventListener('change', sortVisibleCards);
   if (filterForm && categoryFilter && publisherFilter) {
     filterForm.addEventListener('submit', (event) => {
       event.preventDefault();

@@ -8,6 +8,7 @@ import {
     getAllGameIds,
     getAllPublishers,
     getGameById,
+    sortGames,
     getGamesByFilters,
 } from './games';
 
@@ -79,6 +80,30 @@ describe('games data-access helpers', () => {
         expect(all.map((g) => g.title)).toEqual(['Game 01', 'Game 02', 'Game 03']);
         expect(all[0].category).toEqual({ id: expect.any(Number), name: 'Strategy' });
         expect(all[0].publisher).toEqual({ id: expect.any(Number), name: 'Pub One' });
+    });
+
+    it('sorts games by title in both directions', () => {
+        const games = [
+            { id: 1, title: 'Alpha', description: '', starRating: 3, category: null, publisher: null },
+            { id: 2, title: 'Bravo', description: '', starRating: 5, category: null, publisher: null },
+        ];
+
+        expect(sortGames(games, 'title-desc').map((game) => game.title)).toEqual(['Bravo', 'Alpha']);
+        expect(games.map((game) => game.title)).toEqual(['Alpha', 'Bravo']);
+    });
+
+    it('sorts rated games highest first and leaves unrated games last', () => {
+        const games = [
+            { id: 1, title: 'Unrated', description: '', starRating: null, category: null, publisher: null },
+            { id: 2, title: 'Lower', description: '', starRating: 3.5, category: null, publisher: null },
+            { id: 3, title: 'Higher', description: '', starRating: 4.8, category: null, publisher: null },
+        ];
+
+        expect(sortGames(games, 'rating-desc').map((game) => game.title)).toEqual([
+            'Higher',
+            'Lower',
+            'Unrated',
+        ]);
     });
 
     it('returns all game ids ordered by title', async () => {
