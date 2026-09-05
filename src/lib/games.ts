@@ -25,6 +25,8 @@ type GameSelectionRow = {
     publisherName: string | null;
 };
 
+export type GameSort = 'title-asc' | 'title-desc' | 'rating-desc';
+
 function mapGame(row: GameSelectionRow): Game {
     return {
         id: row.id,
@@ -42,6 +44,28 @@ function mapGame(row: GameSelectionRow): Game {
     };
 }
 
+/**
+ * Sorts games for the catalog while keeping unrated games after rated games.
+ *
+ * @param gamesToSort - Games to order.
+ * @param sort - Requested catalog sort order.
+ * @returns A new array containing the games in the requested order.
+ */
+export function sortGames(gamesToSort: Game[], sort: GameSort): Game[] {
+    return [...gamesToSort].sort((a, b) => {
+        if (sort === 'rating-desc') {
+            if (a.starRating === null && b.starRating !== null) return 1;
+            if (a.starRating !== null && b.starRating === null) return -1;
+            if (a.starRating !== null && b.starRating !== null && a.starRating !== b.starRating) {
+                return b.starRating - a.starRating;
+            }
+        }
+
+        const titleComparison = a.title.localeCompare(b.title);
+        return sort === 'title-desc' ? -titleComparison : titleComparison;
+    });
+}
+
 function baseGamesQuery(db: Database) {
     return db
         .select(gameSelection)
@@ -50,19 +74,19 @@ function baseGamesQuery(db: Database) {
         .leftJoin(publishers, eq(games.publisherId, publishers.id));
 }
 
-/** All games ordered by title. */
+/** Returns all games ordered by title. */
 export async function getAllGames(db: Database): Promise<Game[]> {
     const rows = await baseGamesQuery(db).orderBy(asc(games.title));
     return rows.map(mapGame);
 }
 
-/** All game ids ordered by title. */
+/** Returns all game ids ordered by title. */
 export async function getAllGameIds(db: Database): Promise<number[]> {
     const rows = await db.select({ id: games.id }).from(games).orderBy(asc(games.title));
     return rows.map((row) => row.id);
 }
 
-/** A single game by id, or null when it does not exist. */
+/** Returns a single game by id, or null when it does not exist. */
 export async function getGameById(db: Database, id: number): Promise<Game | null> {
     const row = await baseGamesQuery(db).where(eq(games.id, id)).get();
     return row ? mapGame(row) : null;
